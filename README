@@ -1,0 +1,6 @@
+This application is a Java implementation of the following blog post:
+
+http://www.javacodegeeks.com/2012/04/connect-to-rabbitmq-amqp-using-scala.html
+
+with some correction to the technique here: 
+http://blog.hasbeco.me/post/35586367370/akka-amqp-play-and-scala-a-follow-up
