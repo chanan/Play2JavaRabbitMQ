@@ -1,4 +1,4 @@
-package framework;
+package infrastructure;
 
 import com.rabbitmq.client.Channel;
 

@@ -1,4 +1,4 @@
-package framework;
+package infrastructure;
 
 import play.Logger;
 

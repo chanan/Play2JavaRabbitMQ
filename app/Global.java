@@ -1,7 +1,8 @@
 
+import infrastructure.Sender;
+
 import java.io.IOException;
 
-import framework.Sender;
 import play.*;
 
 public class Global extends GlobalSettings {
@@ -25,5 +26,4 @@ public class Global extends GlobalSettings {
 			Logger.error(e.toString());
 		}
 	}
-
 }

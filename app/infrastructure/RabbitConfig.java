@@ -1,10 +1,11 @@
-package framework;
+package infrastructure;
 
 import com.typesafe.config.ConfigFactory;
 
 public class RabbitConfig {
 	private static String rabbitHost;
 	private static String rabbitQueue;
+	private static String rabbitRpcQueue;
 	private static String rabbitExchange;
 	
 	
@@ -31,5 +32,12 @@ public class RabbitConfig {
 		}
 		return rabbitExchange;
 	}
-
+	
+	public static String getRabbitRpcQueue() {
+		if(rabbitRpcQueue == null)
+		{
+			rabbitRpcQueue = ConfigFactory.load().getString("rabbitmq.rpcqueue");
+		}
+		return rabbitRpcQueue;
+	}
 }
