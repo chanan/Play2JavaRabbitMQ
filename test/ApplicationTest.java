@@ -3,7 +3,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.codehaus.jackson.JsonNode;
+import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.*;
 
 import play.mvc.*;
@@ -14,9 +14,10 @@ import play.data.validation.Constraints.RequiredValidator;
 import play.i18n.Lang;
 import play.libs.F;
 import play.libs.F.*;
+import play.twirl.api.Content;
 
 import static play.test.Helpers.*;
-import static org.fest.assertions.Assertions.*;
+import static org.junit.Assert.*;
 
 
 /**
@@ -27,18 +28,18 @@ import static org.fest.assertions.Assertions.*;
 */
 public class ApplicationTest {
 
-    @Test 
+    @Test
     public void simpleCheck() {
         int a = 1 + 1;
-        assertThat(a).isEqualTo(2);
+        assertEquals(2, a);
     }
-    
+
     @Test
     public void renderTemplate() {
         Content html = views.html.index.render("Your new application is ready.");
-        assertThat(contentType(html)).isEqualTo("text/html");
-        assertThat(contentAsString(html)).contains("Your new application is ready.");
+        assertEquals("text/html", contentType(html));
+        assertTrue(contentAsString(html).contains("Your new application is ready."));
     }
-  
-   
+
+
 }

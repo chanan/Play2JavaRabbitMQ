@@ -1,10 +1,10 @@
 package infrastructure.jsonrpc;
 
-import java.io.IOException;
-
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.AMQP.BasicProperties;
 import com.rabbitmq.client.Channel;
+
+import java.io.IOException;
 
 public class StringRpcServer extends RpcServer {
 	public StringRpcServer(Channel channel) throws IOException { 
@@ -27,13 +27,13 @@ public class StringRpcServer extends RpcServer {
     	String request;
         try {
             request = new String(requestBody, STRING_ENCODING);
-        } catch (IOException _) {
+        } catch (IOException e) {
             request = new String(requestBody);
         }
         String reply = handleStringCall(request, replyProperties);
         try {
             return reply.getBytes(STRING_ENCODING);
-        } catch (IOException _) {
+        } catch (IOException e) {
             return reply.getBytes();
         }
 	}
@@ -64,7 +64,7 @@ public class StringRpcServer extends RpcServer {
     {
         try {
             handleStringCast(new String(requestBody, STRING_ENCODING));
-        } catch (IOException _) {
+        } catch (IOException e) {
             handleStringCast(new String(requestBody));
         }
     }

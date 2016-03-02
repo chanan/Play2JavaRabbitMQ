@@ -1,13 +1,13 @@
 package infrastructure.jsonrpc;
 
-import java.io.IOException;
-import java.util.UUID;
-
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.AMQP.BasicProperties;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.DefaultConsumer;
 import com.rabbitmq.client.Envelope;
+
+import java.io.IOException;
+import java.util.UUID;
 
 
 /**

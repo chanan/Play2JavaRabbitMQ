@@ -17,24 +17,18 @@
 
 package infrastructure.jsonrpc;
 
+import com.fasterxml.jackson.core.JsonParseException;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.rabbitmq.client.AMQP;
+import com.rabbitmq.client.Channel;
 import infrastructure.json.JSONReader;
 import infrastructure.json.JSONWriter;
 
 import java.io.IOException;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-
-import org.codehaus.jackson.JsonNode;
-import org.codehaus.jackson.JsonParseException;
-import org.codehaus.jackson.map.JsonMappingException;
-import org.codehaus.jackson.map.ObjectMapper;
-
-import com.rabbitmq.client.AMQP;
-import com.rabbitmq.client.Channel;
+import java.util.*;
 
 /**
  * JSON-RPC Server class.
@@ -175,7 +169,8 @@ public class JsonRpcServer extends StringRpcServer {
 			if(classes[i].isPrimitive()) {
 				className = getPrimitiveClassName(className);
 			}
-			Object object = mapper.readValue(param, Class.forName(className));
+
+			final Object object = mapper.treeToValue(param, Class.forName(className));
 			list.add(object);
 			i++;
 	    }

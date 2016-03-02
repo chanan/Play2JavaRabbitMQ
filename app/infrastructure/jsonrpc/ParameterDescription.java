@@ -17,10 +17,10 @@
 
 package infrastructure.jsonrpc;
 
+import com.rabbitmq.tools.json.JSONUtil;
+
 import java.util.Collection;
 import java.util.Map;
-
-import com.rabbitmq.tools.json.JSONUtil;
 
 /**
  * Description of a single JSON-RPC procedure parameter.

@@ -17,12 +17,12 @@
 
 package infrastructure.jsonrpc;
 
+import com.rabbitmq.tools.json.JSONUtil;
+
 import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
-
-import com.rabbitmq.tools.json.JSONUtil;
 
 /**
  * Description of a JSON-RPC service.

@@ -1,38 +1,4 @@
-This application is a Java implementation of the following blog post:
+This is your new Play application
+=================================
 
-http://www.javacodegeeks.com/2012/04/connect-to-rabbitmq-amqp-using-scala.html
-
-with some correction to the technique here: 
-http://blog.hasbeco.me/post/35586367370/akka-amqp-play-and-scala-a-follow-up
-
-Update:
--------
-
-Add to this demo RPC call over Rabbit MQ. I modified the JsonRpcServer & JsonRpcClient to do two things:
-
-1. Changed JsonRpcServer to use DefaultConsumer instead of QueueingConsumer so as not to block the thread.
-2. Changed both JsonRpcServer & JsonRpcClient to handle complex types instead of just primitves (and strings).
-
-How To Use:
------------
-
-1. One way messaging:
-
-a. Create an untyped actor (in this demo: CommandActor)
-b. Connect a Channel & Queue to the Actor: channel.basicConsume(RabbitConfig.getRabbitQueue(), false, "event_filter", new CommandConsumer(channel, actor)); (in Sender class in this demo)
-c. Publish messages to the queue as usual.
-
-2. RPC
-
-a. On the server create a service that will be typed actor (in this demo: remote.RemoteCalcultor, remote.RemoteCalculatorImpl).
-b. Create the typed actor: RemoteCalculator calculatorkActor =TypedActor.get(Akka.system()).typedActorOf(new TypedProps<RemoteCalculatorImpl>(RemoteCalculator.class, RemoteCalculatorImpl.class)); (in infrastucture.Sender)
-c. Create the JsonRpcServer: calculator = new JsonRpcServer(channel, RabbitConfig.getRabbitRpcQueue(), RemoteCalculator.class, calculatorkActor); (note: Use the JsonRpcServer in the infrastructure and not the one that comes with RabbitMQ driver)
-d. Start the RpcServer: calculator.start();
-
-e. On the client create a JsonRpcClient: JsonRpcClient client = new JsonRpcClient(channel, "", RabbitConfig.getRabbitRpcQueue()); (in services.CalculatorFactory) (again note: Use the class from infrastructure not RabbitMQ driver).
-f. Call the remote service: calculator.add(1, 2); (in controllers.Application)
-
-Future:
--------
-
-This should really be made into a Play 2 Module...
+This file will be packaged with your application, when using `activator dist`.

@@ -16,6 +16,13 @@
 
 package infrastructure.jsonrpc;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.rabbitmq.client.Channel;
+import com.rabbitmq.client.RpcClient;
+import com.rabbitmq.client.ShutdownSignalException;
+import com.rabbitmq.tools.jsonrpc.JsonRpcException;
 import infrastructure.json.JSONReader;
 import infrastructure.json.JSONWriter;
 
@@ -26,15 +33,6 @@ import java.lang.reflect.Proxy;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeoutException;
-
-import org.codehaus.jackson.JsonNode;
-import org.codehaus.jackson.JsonProcessingException;
-import org.codehaus.jackson.map.ObjectMapper;
-
-import com.rabbitmq.client.Channel;
-import com.rabbitmq.client.RpcClient;
-import com.rabbitmq.client.ShutdownSignalException;
-import com.rabbitmq.tools.jsonrpc.JsonRpcException;
 
 /**
 	  <a href="http://json-rpc.org">JSON-RPC</a> is a lightweight
@@ -119,15 +117,16 @@ public class JsonRpcClient extends RpcClient implements InvocationHandler {
      * @throws ClassNotFoundException
      */
     private Object getObjectResult(String method, Object[] params, String replyStr) throws JsonProcessingException, IOException, ClassNotFoundException {
-    	JsonNode root = mapper.readTree(replyStr);
-		JsonNode result = root.path("result");
-		
-		String className = getMethodReturnClassName(method, params);
-		if("void".equalsIgnoreCase(className)) return null;
-		className = fixPrimitiveClassName(className);
-		Object ret = mapper.readValue(result, Class.forName(className));
-		return ret;
-	}
+        JsonNode root = mapper.readTree(replyStr);
+        JsonNode result = root.path("result");
+
+        String className = getMethodReturnClassName(method, params);
+        if("void".equalsIgnoreCase(className)) return null;
+        className = fixPrimitiveClassName(className);
+        Object ret = mapper.treeToValue(result, Class.forName(className));
+        return ret;
+    }
+
 
     /**
      * Private API Added by Chanan.

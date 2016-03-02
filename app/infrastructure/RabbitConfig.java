@@ -1,42 +1,50 @@
 package infrastructure;
 
-import com.typesafe.config.ConfigFactory;
+import com.google.inject.Inject;
+import com.google.inject.Singleton;
+import play.Configuration;
 
+@Singleton
 public class RabbitConfig {
-	private static String rabbitHost;
-	private static String rabbitQueue;
-	private static String rabbitRpcQueue;
-	private static String rabbitExchange;
-	
-	
-	public static String getRabbitHost() {
+	private String rabbitHost;
+	private String rabbitQueue;
+	private String rabbitRpcQueue;
+	private String rabbitExchange;
+    private final Configuration config;
+
+	@Inject
+	public RabbitConfig(Configuration config) {
+        this.config = config;
+	}
+
+	public String getRabbitHost() {
 		if(rabbitHost == null)
 		{
-			rabbitHost = ConfigFactory.load().getString("rabbitmq.host");
+			rabbitHost = config.getString("rabbitmq.host");
 		}
 		return rabbitHost;
 	}
 	
-	public static String getRabbitQueue() {
+	public String getRabbitQueue() {
 		if(rabbitQueue == null)
 		{
-			rabbitQueue = ConfigFactory.load().getString("rabbitmq.queue");
+			rabbitQueue = config.getString("rabbitmq.queue");
 		}
 		return rabbitQueue;
 	}
 	
-	public static String getRabbitExchange() {
+	public String getRabbitExchange() {
 		if(rabbitExchange == null)
 		{
-			rabbitExchange = ConfigFactory.load().getString("rabbitmq.exchange");
+			rabbitExchange = config.getString("rabbitmq.exchange");
 		}
 		return rabbitExchange;
 	}
 	
-	public static String getRabbitRpcQueue() {
+	public String getRabbitRpcQueue() {
 		if(rabbitRpcQueue == null)
 		{
-			rabbitRpcQueue = ConfigFactory.load().getString("rabbitmq.rpcqueue");
+			rabbitRpcQueue = config.getString("rabbitmq.rpcqueue");
 		}
 		return rabbitRpcQueue;
 	}
