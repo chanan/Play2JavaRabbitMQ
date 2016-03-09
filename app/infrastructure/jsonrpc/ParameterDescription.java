@@ -42,20 +42,16 @@ public class ParameterDescription {
         JSONUtil.tryFill(this, pm);
     }
 
-    public ParameterDescription(int index, Class<?> c) {
+    public ParameterDescription(int index, String type) {
         name = "param" + index;
-        type = lookup(c);
+        this.type = type;
     }
 
-    public static String lookup(Class<?> c) {
-        if (c == Void.class) return "nil";
-        if (c == Boolean.class) return "bit";
-        if (c == Integer.class) return "num";
-        if (c == Double.class) return "num";
-        if (c == String.class) return "str";
-        if (c.isArray()) return "arr";
-        if (Map.class.isAssignableFrom(c)) return "obj";
-        if (Collection.class.isAssignableFrom(c)) return "arr";
-        return c.getName();
+    @Override
+    public String toString() {
+        return "ParameterDescription {" +
+                "name: \"" + name + '"' +
+                ", type: \"" + type + '"' +
+                '}';
     }
 }

@@ -18,10 +18,14 @@
 package infrastructure.jsonrpc;
 
 import java.lang.reflect.Method;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
 import com.rabbitmq.tools.json.JSONUtil;
+import play.Logger;
 
 /**
  * Description of a single JSON-RPC procedure.
@@ -44,11 +48,13 @@ public class ProcedureDescription {
     /** Reflected method object, used for service invocation */
     private Method method;
 
+    public int id;
+
     public ProcedureDescription(Map<String, Object> pm) {
         JSONUtil.tryFill(this, pm);
 
         @SuppressWarnings("unchecked")
-        List<Map<String, Object>> p = (List<Map<String, Object>>) pm.get("params");
+        final List<Map<String, Object>> p = (List<Map<String, Object>>) pm.get("params");
         params = new ParameterDescription[p.size()];
         int count = 0;
         for (Map<String, Object> param_map: p) {
@@ -57,18 +63,35 @@ public class ProcedureDescription {
         }
     }
 
-    public ProcedureDescription(Method m) {
+    public ProcedureDescription(Method m, int num) {
         this.method = m;
         this.name = m.getName();
         this.summary = "";
         this.help = "";
         this.idempotent = false;
-        Class<?>[] parameterTypes = m.getParameterTypes();
+        this.id = num;
+        final Class<?>[] parameterTypes = m.getParameterTypes();
         this.params = new ParameterDescription[parameterTypes.length];
         for (int i = 0; i < parameterTypes.length; i++) {
-            params[i] = new ParameterDescription(i, parameterTypes[i]);
+            params[i] = new ParameterDescription(i, parameterTypes[i].getTypeName());
         }
-        this.returnType = ParameterDescription.lookup(m.getReturnType());
+        this.returnType = getReturnClass(m);
+    }
+
+    private String getReturnClass(Method m) {
+        final Type returnType = m.getGenericReturnType();
+
+        if (returnType instanceof Class<?>)
+            return returnType.getTypeName();
+        else  {
+            final ParameterizedType type = (ParameterizedType) returnType;
+            final Type[] typeArguments = type.getActualTypeArguments();
+            String found = null;
+            for(Type typeArgument : typeArguments) {
+                found = typeArgument.getTypeName();
+            }
+            return found;
+        }
     }
 
     public ProcedureDescription() {
@@ -95,5 +118,15 @@ public class ProcedureDescription {
 
     public ParameterDescription[] getParams() {
         return params;
+    }
+
+    @Override
+    public String toString() {
+        return "ProcedureDescription {" +
+                "name: \"" + name + '"' +
+                ", id: " +id +
+                ", params: [" + Arrays.toString(params) + ']' +
+                ", returnType: \"" + returnType + '\"' +
+                '}';
     }
 }

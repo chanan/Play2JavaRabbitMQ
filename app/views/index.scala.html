@@ -1,7 +1,12 @@
-@(message: String)
-
-@main("Welcome to Play") {
-
-    @play20.welcome(message, style = "Java")
-
+@main("Rabbit Test") {
+    <ul>
+        <li><a href="@routes.Application.add(4, 6)">Add 4  + 6</a></li>
+        <li><a href="@routes.Application.getPersonList">List People</a></li>
+        <li><a href="@routes.Application.getPerson(0)">Get Person(0)</a></li>
+        <li><a href="@routes.Application.getPerson(3)">Get Person(3) - non found</a></li>
+        <li><a href="@routes.Application.increaseAge()">Increase Age</a></li>
+        <li><a href="@routes.Application.addPerson()">Add Person</a></li>
+        <li><a href="@routes.Application.addPeople()">Add People</a></li>
+        <li><a href="@routes.Application.getPeopleByIds">Find people by id</a></li>
+    </ul>
 }

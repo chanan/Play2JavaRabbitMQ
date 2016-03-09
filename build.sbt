@@ -11,7 +11,8 @@ libraryDependencies ++= Seq(
   cache,
   javaWs,
   "com.rabbitmq" % "amqp-client" % "3.5.6",
-  "com.fasterxml.jackson.core" % "jackson-databind" % "2.7.1-1"
+  "com.fasterxml.jackson.core" % "jackson-databind" % "2.7.1-1",
+  "com.diffplug.durian" % "durian" % "3.3.0"
 )
 
 // Play provides two styles of routers, one expects its actions to be injected, the

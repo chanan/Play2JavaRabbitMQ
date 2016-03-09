@@ -1,5 +1,7 @@
 package remote;
 
+import java.util.concurrent.CompletionStage;
+
 public interface RemoteCalculator {
-	public abstract int add(int a, int b);
+	CompletionStage<Integer> add(int a, int b);
 }

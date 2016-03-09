@@ -17,9 +17,13 @@
 
 package infrastructure.jsonrpc;
 
+import com.rabbitmq.tools.Tracer;
 import com.rabbitmq.tools.json.JSONUtil;
+import play.Logger;
+import play.libs.Json;
 
 import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -42,17 +46,20 @@ public class ServiceDescription {
     public String help;
 
     /** Map from procedure name to {@link ProcedureDescription} */
-    private Map<String, ProcedureDescription> procedures;
+    private Map<Integer, ProcedureDescription> procedures;
+
+    private int count = 0;
 
     public ServiceDescription(Map<String, Object> rawServiceDescription) {
         JSONUtil.tryFill(this, rawServiceDescription);
     }
 
     public ServiceDescription(Class<?> klass) {
-        this.procedures = new HashMap<String, ProcedureDescription>();
+        this.procedures = new HashMap<>();
         for (Method m: klass.getMethods()) {
-            ProcedureDescription proc = new ProcedureDescription(m);
-            addProcedure(proc);
+            ProcedureDescription proc = new ProcedureDescription(m, count);
+            addProcedure(proc, count);
+            count++;
         }
     }
 
@@ -67,29 +74,95 @@ public class ServiceDescription {
 
     /** Private API - used via reflection during parsing/loading */
     public void setProcs(Collection<Map<String, Object>> p) {
-        procedures = new HashMap<String, ProcedureDescription>();
+        procedures = new HashMap<>();
         for (Map<String, Object> pm: p) {
             ProcedureDescription proc = new ProcedureDescription(pm);
-            addProcedure(proc);
+            addProcedure(proc, 0);  // FIXME: 3/7/16
         }
     }
 
     /** Private API - used during initialization */
-    private void addProcedure(ProcedureDescription proc) {
-        procedures.put(proc.name + "/" + proc.arity(), proc);
+    private void addProcedure(ProcedureDescription proc, int num) {
+        procedures.put(proc.id, proc);
     }
 
     /**
-     * Looks up a single ProcedureDescription by name and arity.
-     * @return non-null ProcedureDescription if a match is found
-     * @throws IllegalArgumentException if no match is found
+     * Called from client side
+     * @param name
+     * @param params
+     * @return
      */
-    public ProcedureDescription getProcedure(String newname, int arity) {
-        ProcedureDescription proc = procedures.get(newname + "/" + arity);
-        if (proc == null) {
-            throw new IllegalArgumentException("Procedure not found: " + newname +
-                                               ", arity " + arity);
+    public ProcedureDescription getProcedure(String name, Object[] params) {
+        if(params != null) Arrays.asList(params).stream().forEach(p -> Logger.debug("Param: " + p.toString()));
+
+        final int paramsLength = params != null ? params.length : 0;
+        ProcedureDescription found = null;
+
+        for(ProcedureDescription proc : this.getProcs()) {
+            boolean match = false;
+            if(name.equals(proc.name) && paramsLength == proc.arity()) {
+                boolean parseError = false;
+                for (int i = 0; i < proc.arity(); i++) {
+                    Logger.debug("----------");
+                    try {
+                        final Class<?> clazz = Class.forName(fixPrimitiveClassName(proc.getParams()[i].type));
+                        clazz.cast(params[i]);
+                    } catch (Exception e) {
+                        Logger.error("Parse error", e);
+                        parseError = true;
+                        break;
+                    }
+                }
+                if (!parseError) match = true;
+            }
+            if(match) {
+                found = proc;
+                break;
+            }
         }
-        return proc;
+
+        if (found == null) throw new IllegalArgumentException("Procedure not found: " + name);
+        Logger.debug("Found: " + found);
+        return found;
+    }
+
+    /**
+     * Called from server side
+     * @param methodId
+     * @return
+     */
+    public ProcedureDescription getProcedure(int methodId) {
+        return procedures.get(methodId);
+    }
+
+    private String fixPrimitiveClassName(String className) {
+        switch (className.toLowerCase()) {
+            case "byte":
+                return "java.lang.Byte";
+            case "short":
+                return "java.lang.Short";
+            case "int":
+                return "java.lang.Integer";
+            case "long":
+                return "java.lang.Long";
+            case "float":
+                return "java.lang.Float";
+            case "double":
+                return "java.lang.Double";
+            case "char":
+                return "java.lang.Character";
+            case "boolean":
+                return "java.lang.Boolean";
+            default:
+                return className;
+        }
+    }
+
+
+    @Override
+    public String toString() {
+        return "ServiceDescription {" +
+                "procedures: " + procedures +
+                '}';
     }
 }

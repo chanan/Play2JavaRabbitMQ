@@ -18,6 +18,7 @@
 package infrastructure.jsonrpc;
 
 import com.fasterxml.jackson.core.JsonParseException;
+import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -25,6 +26,10 @@ import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Channel;
 import infrastructure.json.JSONReader;
 import infrastructure.json.JSONWriter;
+
+import java.lang.reflect.Type;
+import java.util.concurrent.CompletableFuture;
+import play.Logger;
 
 import java.io.IOException;
 import java.lang.reflect.Method;
@@ -106,6 +111,7 @@ public class JsonRpcServer extends StringRpcServer {
         Object id;
         String method;
         Object[] params;
+        int methodId = -1;
         try {
             @SuppressWarnings("unchecked")
             Map<String, Object> request = (Map<String, Object>) new JSONReader().read(requestBody);
@@ -119,6 +125,7 @@ public class JsonRpcServer extends StringRpcServer {
             id = request.get("id");
             method = (String) request.get("method");
             List<?> paramList = (List<?>) request.get("params");
+            if (!method.startsWith("system.")) methodId = Integer.parseInt(request.get("method_id").toString());
             params = paramList.toArray();
             
         } catch (ClassCastException cce) {
@@ -133,9 +140,11 @@ public class JsonRpcServer extends StringRpcServer {
         } else {
             Object result;
             try {
-            	Method m = matchingMethod(method, params);
+            	Method m = matchingMethod(methodId);
             	params = getObjectParams(m, requestBody);
-                result = m.invoke(interfaceInstance, params);
+                CompletableFuture<Object> futureResult = (CompletableFuture<Object>)m.invoke(interfaceInstance, params);
+                result = futureResult.get();
+                Logger.debug("Server method result: " + result);
             } catch (Throwable t) {
                 return errorResponse(id, 500, "Internal Server Error", t);
             }
@@ -157,67 +166,65 @@ public class JsonRpcServer extends StringRpcServer {
      * @throws ClassNotFoundException
      */
     private Object[] getObjectParams(Method method, String requestBody) throws JsonParseException, JsonMappingException, IOException, ClassNotFoundException {
-		List<Object> list = new ArrayList<Object>();
+		List<Object> list = new ArrayList<>();
 		JsonNode root = mapper.readTree(requestBody);
 		JsonNode params = root.path("params");
 		int i = 0;
 		Iterator<JsonNode> iterator = params.iterator();
-		Class<?>[] classes = method.getParameterTypes();
+		final Type[] types = method.getGenericParameterTypes();
 		while (iterator.hasNext()) { 
 			JsonNode param = iterator.next();
-			String className = classes[i].getName();
-			if(classes[i].isPrimitive()) {
-				className = getPrimitiveClassName(className);
-			}
-
-			final Object object = mapper.treeToValue(param, Class.forName(className));
-			list.add(object);
+			String className = types[i].getTypeName();
+            if (className.contains("<")) {
+                final String genericClassName = className.substring(0, className.indexOf("<"));
+                final String typeName = className.substring(className.indexOf("<") + 1, className.length() - 1);
+                final Class<?> genericClazz = getClassForName(genericClassName);
+                final Class<?> clazz = getClassForName(typeName);
+                final JavaType javaType = mapper.getTypeFactory().constructParametricType(genericClazz, clazz);
+                final Object obj = mapper.convertValue(param, javaType);
+                list.add(obj);
+            } else {
+                final Class<?> clazz = getClassForName(className);
+                final Object obj = mapper.treeToValue(param, clazz);
+                list.add(obj);
+            }
 			i++;
 	    }
 		return list.toArray();
 	}
-    
-    /**
-     * Private API Added by Chanan.
-     * 
-     * Get the class name for primitive types.
-     * 
-     * @param className
-     * @return
-     */
-	private String getPrimitiveClassName(String className) {
-		switch (className.toLowerCase()) {
-			case "byte":
-				return "java.lang.Byte";
-			case "short":
-				return "java.lang.Short";
-			case "int":
-				return "java.lang.Integer";
-			case "long":
-				return "java.lang.Long";
-			case "float":
-				return "java.lang.Float";
-			case "double":
-				return "java.lang.Double";
-			case "char":
-				return "java.lang.Character";
-			case "boolean":
-				return "java.lang.Boolean";
-			default:
-				return "java.lang.Object";
-		}
-	}
 
-	/**
+    private Class<?> getClassForName(String className) throws ClassNotFoundException {
+        String temp;
+        if (className.contains("<")) temp = className.substring(0, className.indexOf("<"));
+        else temp = className;
+        switch (temp.toLowerCase()) {
+            case "byte":
+                return byte.class;
+            case "short":
+                return short.class;
+            case "int":
+                return int.class;
+            case "long":
+                return long.class;
+            case "float":
+                return float.class;
+            case "double":
+                return double.class;
+            case "char":
+                return char.class;
+            case "boolean":
+                return boolean.class;
+            default:
+                return Class.forName(temp);
+        }
+    }
+
+    /**
      * Retrieves the best matching method for the given method name and parameters.
      *
-     * Subclasses may override this if they have specialised
-     * dispatching requirements, so long as they continue to honour
-     * their ServiceDescription.
      */
-    public Method matchingMethod(String methodName, Object[] params) {
-    	//TODO: This should be improved to take into account parameter types and not just count.
-        ProcedureDescription proc = serviceDescription.getProcedure(methodName, params.length);
+    public Method matchingMethod(int methodId) {
+        ProcedureDescription proc = serviceDescription.getProcedure(methodId);
         return proc.internal_getMethod();
     }
 
@@ -247,14 +254,13 @@ public class JsonRpcServer extends StringRpcServer {
      * Private API - used by errorResponse and resultResponse.
      */
     public static String response(Object id, String label, Object value) {
-        Map<String, Object> resp = new HashMap<String, Object>();
+        Map<String, Object> resp = new HashMap<>();
         resp.put("version", ServiceDescription.JSON_RPC_VERSION);
         if (id != null) {
             resp.put("id", id);
         }
         resp.put(label, value);
         String respStr = new JSONWriter().write(resp);
-        //System.err.println(respStr);
         return respStr;
     }
 

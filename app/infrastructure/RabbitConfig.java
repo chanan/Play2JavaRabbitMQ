@@ -10,6 +10,7 @@ public class RabbitConfig {
 	private String rabbitQueue;
 	private String rabbitRpcQueue;
 	private String rabbitExchange;
+    private String personRepoQueue;
     private final Configuration config;
 
 	@Inject
@@ -48,4 +49,12 @@ public class RabbitConfig {
 		}
 		return rabbitRpcQueue;
 	}
+
+    public String getPersonRepoQueue() {
+        if(personRepoQueue == null)
+        {
+            personRepoQueue = config.getString("rabbitmq.personRepoQueue");
+        }
+        return personRepoQueue;
+    }
 }

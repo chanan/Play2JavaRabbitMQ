@@ -5,6 +5,7 @@ import com.rabbitmq.client.AMQP.BasicProperties;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.DefaultConsumer;
 import com.rabbitmq.client.Envelope;
+import play.Logger;
 
 import java.io.IOException;
 import java.util.UUID;
@@ -63,7 +64,8 @@ public class RpcServer extends DefaultConsumer {
     
     @Override
 	public void handleDelivery(String consumerTag, Envelope envelope, BasicProperties properties, byte[] body) throws IOException {
-    	processRequest(properties, body);
+        Logger.debug("Server side handle delivery: " + new String(body));
+        processRequest(properties, body);
     	getChannel().basicAck(envelope.getDeliveryTag(), false);
 	}
     
@@ -77,6 +79,7 @@ public class RpcServer extends DefaultConsumer {
         {
             AMQP.BasicProperties replyProperties = new AMQP.BasicProperties.Builder().correlationId(correlationId).build();
             byte[] replyBody = handleCall(properties, body, replyProperties);
+            Logger.debug("Server side about to reply: " + new String(replyBody));
             getChannel().basicPublish("", replyTo, replyProperties, replyBody);
         } else {
             handleCast(properties, body);

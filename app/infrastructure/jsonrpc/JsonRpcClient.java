@@ -138,7 +138,8 @@ public class JsonRpcClient extends RpcClient implements InvocationHandler {
      * @return
      */
 	private String getMethodReturnClassName(String method, Object[] params) {
-		ProcedureDescription proc = serviceDescription.getProcedure(method, params.length);
+		//ProcedureDescription proc = serviceDescription.getProcedure(method, params.length);
+		ProcedureDescription proc = serviceDescription.getProcedure(-1);
 		return proc.getReturn();
 	}
 
@@ -185,7 +186,7 @@ public class JsonRpcClient extends RpcClient implements InvocationHandler {
      */
     public Object call(String method, Object[] params) throws IOException, JsonRpcException, TimeoutException, ClassNotFoundException
     {
-        HashMap<String, Object> request = new HashMap<String, Object>();
+        HashMap<String, Object> request = new HashMap<>();
         request.put("id", null);
         request.put("method", method);
         request.put("version", ServiceDescription.JSON_RPC_VERSION);
@@ -262,7 +263,8 @@ public class JsonRpcClient extends RpcClient implements InvocationHandler {
 
     	String method = args[0];
         int arity = args.length - 1;
-        ProcedureDescription proc = serviceDescription.getProcedure(method, arity);
+        //ProcedureDescription proc = serviceDescription.getProcedure(method, arity);
+		ProcedureDescription proc = serviceDescription.getProcedure(-1);
         ParameterDescription[] params = proc.getParams();
 
         Object[] actuals = new Object[arity];
