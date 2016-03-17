@@ -2,6 +2,7 @@ package infrastructure.jsonrpc;
 
 import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
+import infrastructure.models.Protocol;
 import play.Logger;
 import scala.Function1;
 import scala.compat.java8.FutureConverters;

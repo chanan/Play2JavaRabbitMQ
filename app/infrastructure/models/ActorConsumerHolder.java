@@ -1,6 +1,7 @@
-package infrastructure.jsonrpc;
+package infrastructure.models;
 
 import akka.actor.ActorRef;
+import infrastructure.jsonrpc.ActorConsumer;
 
 public class ActorConsumerHolder {
     public final Protocol.Invoke invoke;

@@ -8,10 +8,11 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
-import com.rabbitmq.tools.jsonrpc.JsonRpcException;
 import infrastructure.RabbitConnection;
-import infrastructure.json.JSONReader;
-import infrastructure.json.JSONWriter;
+import infrastructure.models.ActorConsumerHolder;
+import infrastructure.models.Procedure;
+import infrastructure.models.Protocol;
+import infrastructure.models.ServiceDescriptor;
 import play.Logger;
 import play.libs.Json;
 import scala.PartialFunction;
@@ -23,25 +24,28 @@ import java.util.Map;
 import java.util.Optional;
 
 public class JsonRpcActorClient extends AbstractActorWithStash {
-    private final String REPLY_TO = "amq.rabbitmq.reply-to";
     private final Map<String, ActorConsumerHolder> calls = new HashMap<>();
     private final String exchange;
     private final String routingKey;
-    private final int timeout;
+    private final int timeout; //TODO make timeout work
+    private final JsonRpcService jsonRpcService;
 
     private Optional<Connection> connection;
     private Optional<Channel> channel;
     private int correlationId;
-    private ServiceDescription serviceDescription;
+    private ServiceDescriptor serviceDescriptor;
 
-    public static Props props(RabbitConnection rabbitConnection, String exchange, String routingKey, int timeout) {
-        return Props.create(JsonRpcActorClient.class, rabbitConnection, exchange, routingKey, timeout);
+
+
+    public static Props props(RabbitConnection rabbitConnection, String exchange, String routingKey, int timeout, JsonRpcService jsonRpcService) {
+        return Props.create(JsonRpcActorClient.class, rabbitConnection, exchange, routingKey, timeout, jsonRpcService);
     }
 
-    public JsonRpcActorClient(RabbitConnection rabbitConnection, String exchange, String routingKey, int timeout) {
+    public JsonRpcActorClient(RabbitConnection rabbitConnection, String exchange, String routingKey, int timeout, JsonRpcService jsonRpcService) {
         this.exchange = exchange;
         this.routingKey = routingKey;
         this.timeout = timeout;
+        this.jsonRpcService = jsonRpcService;
 
         try {
             connection = Optional.of(rabbitConnection.getConnection());
@@ -60,13 +64,13 @@ public class JsonRpcActorClient extends AbstractActorWithStash {
         receive(
                 ReceiveBuilder.match(Protocol.InvokeRabbitReply.class, reply -> {
                     final ActorConsumerHolder holder = calls.remove(reply.properties.getCorrelationId());
-                    final Protocol.InvokeServiceDescriptionReply invokeServiceDescriptionReply =
-                            (Protocol.InvokeServiceDescriptionReply)handleReply(reply, holder);
-                    this.serviceDescription = invokeServiceDescriptionReply.serviceDescription;
-                    context().become(started);
-                    unstashAll();
+                    final Protocol.InvokeReply invokeReply = handleReply(reply, holder);
+                    if(invokeReply.getReplyType() == Protocol.InvokeReplyType.SERVICE_DESCRIPTOR) {
+                        this.serviceDescriptor = invokeReply.getServiceDescriptor();
+                        context().become(started);
+                        unstashAll();
+                    }
                 }).matchAny(any -> {
-                    Logger.info("Stash: " + any);
                     stash();
                 }).build()
         );
@@ -79,70 +83,61 @@ public class JsonRpcActorClient extends AbstractActorWithStash {
                 Logger.debug("Reply: " + reply);
                 final ActorConsumerHolder holder = calls.remove(reply.properties.getCorrelationId());
                 final Protocol.InvokeReply invokeReply = handleReply(reply, holder);
-                if(invokeReply.isError()) {
-                    final Protocol.InvokeError err = (Protocol.InvokeError) invokeReply;
-                    holder.actor.tell(err.error, self());
+                if(invokeReply.getReplyType() == Protocol.InvokeReplyType.ERROR) {
+                    holder.actor.tell(invokeReply.getError(), self());
                 } else {
-                    final Protocol.InvokeObjectReply objectReply = (Protocol.InvokeObjectReply) invokeReply;
-                    holder.actor.tell(objectReply.object, self());
+                    holder.actor.tell(invokeReply.getResult(), self());
                 }
             }).matchAny(any -> unhandled(any)).build();
 
     private Protocol.InvokeReply handleReply(Protocol.InvokeRabbitReply reply, ActorConsumerHolder holder) {
-        final Map<String, Object> map = (Map<String, Object>) (new JSONReader().read(reply.body));
+        final JsonNode node = Json.parse(reply.body);
+        final Protocol.InvokeReply invokeReply = Json.fromJson(node, Protocol.InvokeReply.class);
         final Protocol.Invoke invoke = holder.invoke;
-        return checkReply(invoke, reply, map);
+        return checkReply(invoke, invokeReply, node);
     }
 
-    private Protocol.InvokeReply checkReply(Protocol.Invoke invoke, Protocol.InvokeRabbitReply reply, Map<String, Object> replyMap) {
-        if (replyMap.containsKey("error")) {
-            @SuppressWarnings("unchecked")
-            final Map<String, Object> map = (Map<String, Object>) replyMap.get("error");
-            final JsonRpcException e = new JsonRpcException(map);
-            Logger.error("checkReply error", e);
-            return new Protocol.InvokeError(invoke, e);
+    private Protocol.InvokeReply checkReply(Protocol.Invoke invoke, Protocol.InvokeReply invokeReply, JsonNode node) {
+        if (invokeReply.getReplyType() == Protocol.InvokeReplyType.ERROR) {
+            Logger.error("checkReply error", invokeReply.getError());
+            return invokeReply;
         }
-        if("system.describe".equals(invoke.method)){
-            final Map<String, Object> map = (Map<String, Object>) replyMap.get("result");
-            Logger.debug("Map: " + map);
-            final ServiceDescription sd = new ServiceDescription(map);
-            Logger.debug("SD: " + sd);
-            return new Protocol.InvokeServiceDescriptionReply(invoke, sd);
+        if(invokeReply.getReplyType() == Protocol.InvokeReplyType.SERVICE_DESCRIPTOR){
+            return invokeReply;
         } else {
-            Object result = null;
+            Object result;
             try {
-                result = getObjectResult(invoke, reply.body);
+                result = getObjectResult(invoke, invokeReply.getResult());
             } catch (Exception e) {
-                Logger.debug("Error casting reply to object", e);
-                return new Protocol.InvokeError(invoke, e);
+                Logger.error("Error casting reply to object", e);
+                return new Protocol.InvokeReply(invoke, Protocol.InvokeReplyType.ERROR, e, null, null);
             }
-            return new Protocol.InvokeObjectReply(invoke, result); //TODO Add FQN to Reply
+            return new Protocol.InvokeReply(invoke, Protocol.InvokeReplyType.RESULT, null, null, result);
         }
     }
 
-    private Object getObjectResult(Protocol.Invoke invoke, String body) throws IOException, ClassNotFoundException {
-        final JsonNode root = Json.mapper().readTree(body);
-        final JsonNode result = root.path("result");
+    private Object getObjectResult(Protocol.Invoke invoke, Object object) throws IOException, ClassNotFoundException {
         final String className = getMethodReturnClassName(invoke);
         if("java.lang.Void".equalsIgnoreCase(className)) return new Protocol.NullObject();
-        if(className.contains("<")) return getGenericClass(result, className);
-        return Json.mapper().treeToValue(result, Class.forName(className));
+        final JavaType javaType = getJavaType(className);
+        return Json.mapper().convertValue(object, javaType);
     }
 
-    private Object getGenericClass(JsonNode result, String fullClassName) throws ClassNotFoundException {
-        final String genericClassName = fullClassName.substring(0, fullClassName.indexOf("<"));
-        final String className = fullClassName.substring(fullClassName.indexOf("<") + 1, fullClassName.length() - 1);
-        final Class<?> genericClazz = Class.forName(genericClassName);
-        final Class<?> clazz = Class.forName(className);
-        final JavaType javaType = Json.mapper().getTypeFactory().constructParametricType(genericClazz, clazz);
-        return Json.mapper().convertValue(result, javaType);
+    private JavaType getJavaType(String fullClassName) throws ClassNotFoundException {
+        if(fullClassName.contains("<")) {
+            final String genericClassName = fullClassName.substring(0, fullClassName.indexOf("<"));
+            final String className = fullClassName.substring(fullClassName.indexOf("<") + 1, fullClassName.length() - 1);
+            final Class<?> genericClazz = Class.forName(genericClassName);
+            final Class<?> clazz = Class.forName(className);
+            return Json.mapper().getTypeFactory().constructParametricType(genericClazz, clazz);
+        } else {
+            return Json.mapper().getTypeFactory().constructType(Class.forName(fullClassName));
+        }
     }
 
     private String getMethodReturnClassName(Protocol.Invoke invoke) {
-        final int paramLength = invoke.args != null ? invoke.args.length : 0;
-        int methodId = this.serviceDescription.getProcedure(invoke.method, invoke.args).id;
-        final ProcedureDescription proc = serviceDescription.getProcedure(methodId);
-        return proc.getReturn();
+        final Procedure proc = jsonRpcService.findProcedure(serviceDescriptor, invoke.method, invoke.args).get();
+        return proc.getReturnType();
     }
 
     @Override
@@ -157,21 +152,20 @@ public class JsonRpcActorClient extends AbstractActorWithStash {
         });
     }
 
-    private String createCall(Protocol.Invoke invoke)
+    private Protocol.RabbitMessage createCall(Protocol.Invoke invoke)
     {
-        final HashMap<String, Object> request = new HashMap<>();
-        request.put("id", null);  // FIXME: 3/7/16
-        request.put("method", invoke.method);
-        if(!invoke.method.startsWith("system"))
-            request.put("method_id", this.serviceDescription.getProcedure(invoke.method, invoke.args).id);
-        request.put("version", ServiceDescription.JSON_RPC_VERSION);
-        request.put("params", (invoke.args == null) ? new Object[0] : invoke.args);
-        return new JSONWriter().write(request);
+        if(invoke.method.startsWith("system.")) {
+            return new Protocol.RabbitMessage(invoke.method, new Object[0], null);
+        } else {
+            final Procedure proc = jsonRpcService.findProcedure(serviceDescriptor, invoke.method, invoke.args).get();
+            final int methodId = proc.getId();
+            return new Protocol.RabbitMessage(invoke.method, (invoke.args == null) ? new Object[0] : invoke.args, methodId);
+        }
     }
 
     private void publish(Protocol.Invoke invoke) throws IOException {
         Logger.debug("publish: " + invoke);
-        final String message = createCall(invoke);
+        final Protocol.RabbitMessage message = createCall(invoke);
         correlationId++;
         final String replyId = "" + correlationId;
         final ActorConsumer consumer = new ActorConsumer(channel.get(), self());
@@ -180,6 +174,6 @@ public class JsonRpcActorClient extends AbstractActorWithStash {
         final String callbackQueueName = channel.get().queueDeclare().getQueue();
         final AMQP.BasicProperties props = new AMQP.BasicProperties.Builder().correlationId(replyId).replyTo(callbackQueueName).build();
         channel.get().basicConsume(callbackQueueName, true, consumer);
-        channel.get().basicPublish(exchange, routingKey, props, message.getBytes());
+        channel.get().basicPublish(exchange, routingKey, props, Json.toJson(message).toString().getBytes());
     }
 }
