@@ -32,6 +32,12 @@ public class JsonRpcFactory {
         return (T) Proxy.newProxyInstance(clazz.getClassLoader(), new Class[]{clazz}, proxy);
     }
 
+    public <T> T createClient(Class<T> clazz, String exchange, String routingKey, int timeout) {
+        final ActorRef actor = system.actorOf(JsonRpcActorClient.props(rabbitConnection, exchange, routingKey, timeout, jsonRpcService));
+        final SenderProxy proxy = new SenderProxy(system, actor);
+        return (T) Proxy.newProxyInstance(clazz.getClassLoader(), new Class[]{clazz}, proxy);
+    }
+
     public ActorRef createServer(String queueName, Class<?> interfaceClass, Class<?> instanceClass) {
         final Object actor = TypedActor.get(system).typedActorOf(new TypedProps(interfaceClass, instanceClass));
         final ActorRef server = system.actorOf(JsonRpcActorServer.props(rabbitConnection, queueName, interfaceClass, actor, jsonRpcService));

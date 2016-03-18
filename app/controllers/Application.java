@@ -21,7 +21,7 @@ public class Application extends Controller {
 
     @Inject
     public Application(JsonRpcFactory jsonRpcFactory, RabbitConfig rabbitConfig) {
-        this.remoteCalculator = jsonRpcFactory.createClient(RemoteCalculator.class, "", rabbitConfig.getRabbitRpcQueue());
+        this.remoteCalculator = jsonRpcFactory.createClient(RemoteCalculator.class, "", rabbitConfig.getRabbitRpcQueue(), 10000);
         this.remotePersonRepo = jsonRpcFactory.createClient(RemotePersonRepository.class, "", rabbitConfig.getPersonRepoQueue());
     }
 
@@ -33,6 +33,13 @@ public class Application extends Controller {
         return remoteCalculator.add(num1, num2).thenApply(result -> {
             Logger.info("Add " + num1 + " + " + num2 + " on a remote machine: " + result);
             return ok("Add " + num1 + " + " + num2 + " on a remote machine: " + result);
+        });
+    }
+
+    public CompletionStage<Result> longOperation() {
+        return remoteCalculator.longOperation(1000).thenApply(result -> {
+            Logger.info("Long Operation done");
+            return ok("Long Operation done");
         });
     }
 

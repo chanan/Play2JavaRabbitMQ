@@ -9,4 +9,12 @@ public class RemoteCalculatorImpl implements RemoteCalculator {
 	public CompletionStage<Integer> add(int a, int b) {
 		return CompletableFuture.completedFuture(a + b);
 	}
+
+	@Override
+	public CompletionStage<Void> longOperation(int timeout) {
+		try {
+			Thread.sleep(timeout);
+		} catch (InterruptedException e) { }
+        return CompletableFuture.completedFuture(null);
+	}
 }

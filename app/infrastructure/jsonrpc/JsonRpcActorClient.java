@@ -16,26 +16,28 @@ import infrastructure.models.ServiceDescriptor;
 import play.Logger;
 import play.libs.Json;
 import scala.PartialFunction;
+import scala.concurrent.duration.Duration;
 import scala.runtime.BoxedUnit;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
+import java.time.Instant;
+import java.time.temporal.TemporalUnit;
+import java.util.*;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 public class JsonRpcActorClient extends AbstractActorWithStash {
     private final Map<String, ActorConsumerHolder> calls = new HashMap<>();
     private final String exchange;
     private final String routingKey;
-    private final int timeout; //TODO make timeout work
+    private final int timeout;
+    private java.time.Duration timeoutDuration = null;
     private final JsonRpcService jsonRpcService;
 
     private Optional<Connection> connection;
     private Optional<Channel> channel;
     private int correlationId;
     private ServiceDescriptor serviceDescriptor;
-
-
 
     public static Props props(RabbitConnection rabbitConnection, String exchange, String routingKey, int timeout, JsonRpcService jsonRpcService) {
         return Props.create(JsonRpcActorClient.class, rabbitConnection, exchange, routingKey, timeout, jsonRpcService);
@@ -45,6 +47,7 @@ public class JsonRpcActorClient extends AbstractActorWithStash {
         this.exchange = exchange;
         this.routingKey = routingKey;
         this.timeout = timeout;
+        this.timeoutDuration = java.time.Duration.ofMillis(timeout);
         this.jsonRpcService = jsonRpcService;
 
         try {
@@ -69,6 +72,11 @@ public class JsonRpcActorClient extends AbstractActorWithStash {
                         this.serviceDescriptor = invokeReply.getServiceDescriptor();
                         context().become(started);
                         unstashAll();
+                        if(timeout != -1) {
+                            context().system().scheduler().schedule(Duration.create(50, TimeUnit.MILLISECONDS),
+                                    Duration.create(timeout, TimeUnit.MILLISECONDS),
+                                    self(), "tick", context().dispatcher(), self());
+                        }
                     }
                 }).matchAny(any -> {
                     stash();
@@ -81,13 +89,27 @@ public class JsonRpcActorClient extends AbstractActorWithStash {
                 publish(invoke);
             }).match(Protocol.InvokeRabbitReply.class, reply -> {
                 Logger.debug("Reply: " + reply);
-                final ActorConsumerHolder holder = calls.remove(reply.properties.getCorrelationId());
-                final Protocol.InvokeReply invokeReply = handleReply(reply, holder);
-                if(invokeReply.getReplyType() == Protocol.InvokeReplyType.ERROR) {
-                    holder.actor.tell(invokeReply.getError(), self());
-                } else {
-                    holder.actor.tell(invokeReply.getResult(), self());
+                if(calls.containsKey(reply.properties.getCorrelationId())){
+                    final ActorConsumerHolder holder = calls.remove(reply.properties.getCorrelationId());
+                    final Protocol.InvokeReply invokeReply = handleReply(reply, holder);
+                    if(invokeReply.getReplyType() == Protocol.InvokeReplyType.ERROR) {
+                        holder.actor.tell(invokeReply.getError(), self());
+                    } else {
+                        holder.actor.tell(invokeReply.getResult(), self());
+                    }
                 }
+            }).matchEquals("tick", t -> {
+                final List<String> evict = new ArrayList<>();
+                calls.entrySet().stream().forEach(entry -> {
+                    Logger.debug("Duration: " + java.time.Duration.between(Instant.now(), entry.getValue().startTime).compareTo(timeoutDuration));
+                    if(java.time.Duration.between(Instant.now(), entry.getValue().startTime).compareTo(timeoutDuration) < 0) {
+                        evict.add(entry.getKey());
+                    }
+                });
+                evict.stream().forEach(key -> {
+                    final ActorConsumerHolder holder = calls.remove(key);
+                    holder.actor.tell(new TimeoutException(), self());
+                });
             }).matchAny(any -> unhandled(any)).build();
 
     private Protocol.InvokeReply handleReply(Protocol.InvokeRabbitReply reply, ActorConsumerHolder holder) {
@@ -102,7 +124,7 @@ public class JsonRpcActorClient extends AbstractActorWithStash {
             Logger.error("checkReply error", invokeReply.getError());
             return invokeReply;
         }
-        if(invokeReply.getReplyType() == Protocol.InvokeReplyType.SERVICE_DESCRIPTOR){
+        if(invokeReply.getReplyType() == Protocol.InvokeReplyType.SERVICE_DESCRIPTOR) {
             return invokeReply;
         } else {
             Object result;

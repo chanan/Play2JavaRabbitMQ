@@ -5,6 +5,7 @@
 # Home page
 GET     /                           controllers.Application.index()
 GET     /add/:num1/:num2            controllers.Application.add(num1: Int, num2: Int)
+GET     /longOperation              controllers.Application.longOperation()
 GET     /person/:id                 controllers.Application.getPerson(id: Int)
 GET     /list                       controllers.Application.getPersonList()
 GET     /increase                   controllers.Application.increaseAge()
