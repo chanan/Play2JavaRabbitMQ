@@ -1,9 +1,10 @@
 package controllers;
 
 import com.google.inject.Inject;
-import infrastructure.RabbitConfig;
-import infrastructure.jsonrpc.JsonRpcFactory;
+import jsonrpc.JsonRpcFactory;
+import jsonrpc.RabbitConfig;
 import models.Person;
+import play.Configuration;
 import play.Logger;
 import play.libs.Json;
 import play.mvc.Controller;
@@ -20,9 +21,9 @@ public class Application extends Controller {
     private final RemotePersonRepository remotePersonRepo;
 
     @Inject
-    public Application(JsonRpcFactory jsonRpcFactory, RabbitConfig rabbitConfig) {
-        this.remoteCalculator = jsonRpcFactory.createClient(RemoteCalculator.class, "", rabbitConfig.getRabbitRpcQueue(), 10000);
-        this.remotePersonRepo = jsonRpcFactory.createClient(RemotePersonRepository.class, "", rabbitConfig.getPersonRepoQueue());
+    public Application(JsonRpcFactory jsonRpcFactory, Configuration config) {
+        this.remoteCalculator = jsonRpcFactory.createClient(RemoteCalculator.class, "", config.getString("rabbitmq.rpcqueue"), 10000);
+        this.remotePersonRepo = jsonRpcFactory.createClient(RemotePersonRepository.class, "", config.getString("rabbitmq.personRepoQueue"));
     }
 
     public Result index() {

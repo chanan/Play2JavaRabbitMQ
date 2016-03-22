@@ -1,12 +1,11 @@
-package infrastructure.jsonrpc;
+package jsonrpc;
 
 import akka.actor.ActorRef;
 import com.rabbitmq.client.AMQP.BasicProperties;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.DefaultConsumer;
 import com.rabbitmq.client.Envelope;
-import infrastructure.models.Protocol;
-import play.Logger;
+import jsonrpc.models.Protocol;
 
 import java.io.IOException;
 

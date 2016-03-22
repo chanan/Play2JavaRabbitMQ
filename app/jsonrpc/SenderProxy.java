@@ -1,10 +1,8 @@
-package infrastructure.jsonrpc;
+package jsonrpc;
 
 import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
-import infrastructure.models.Protocol;
-import play.Logger;
-import scala.Function1;
+import jsonrpc.models.Protocol;
 import scala.compat.java8.FutureConverters;
 
 import java.lang.reflect.InvocationHandler;

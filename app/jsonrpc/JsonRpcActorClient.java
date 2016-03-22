@@ -1,4 +1,4 @@
-package infrastructure.jsonrpc;
+package jsonrpc;
 
 import akka.actor.AbstractActorWithStash;
 import akka.actor.Props;
@@ -8,11 +8,11 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
-import infrastructure.RabbitConnection;
-import infrastructure.models.ActorConsumerHolder;
-import infrastructure.models.Procedure;
-import infrastructure.models.Protocol;
-import infrastructure.models.ServiceDescriptor;
+import jsonrpc.models.ActorConsumerHolder;
+import jsonrpc.models.Procedure;
+import jsonrpc.models.Protocol;
+
+import jsonrpc.models.ServiceDescriptor;
 import play.Logger;
 import play.libs.Json;
 import scala.PartialFunction;
@@ -21,7 +21,6 @@ import scala.runtime.BoxedUnit;
 
 import java.io.IOException;
 import java.time.Instant;
-import java.time.temporal.TemporalUnit;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;

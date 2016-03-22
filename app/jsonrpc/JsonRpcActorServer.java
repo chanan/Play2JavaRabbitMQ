@@ -1,4 +1,4 @@
-package infrastructure.jsonrpc;
+package jsonrpc;
 
 import akka.actor.AbstractActor;
 import akka.actor.Props;
@@ -8,10 +8,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
-import infrastructure.RabbitConnection;
-import infrastructure.models.Procedure;
-import infrastructure.models.Protocol;
-import infrastructure.models.ServiceDescriptor;
+import jsonrpc.models.Procedure;
+import jsonrpc.models.Protocol;
+import jsonrpc.models.ServiceDescriptor;
 import play.Logger;
 import play.libs.Json;
 

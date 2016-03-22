@@ -1,7 +1,7 @@
-package infrastructure.models;
+package jsonrpc.models;
 
 import akka.actor.ActorRef;
-import infrastructure.jsonrpc.ActorConsumer;
+import jsonrpc.ActorConsumer;
 
 import java.time.Instant;
 

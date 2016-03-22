@@ -1,8 +1,8 @@
-package infrastructure.jsonrpc;
+package jsonrpc;
 
-import infrastructure.models.Parameter;
-import infrastructure.models.Procedure;
-import infrastructure.models.ServiceDescriptor;
+import jsonrpc.models.Parameter;
+import jsonrpc.models.Procedure;
+import jsonrpc.models.ServiceDescriptor;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
